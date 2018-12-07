@@ -12,8 +12,10 @@ defmodule SmppexOserlTest do
          {:short_message, 'message'},
          {:network_error_code, {:network_error_code, 1, 2}},
          {:its_session_info, {:its_session_info, 1, 2}},
-         {5156, "any tlv field"},
-         {:esm_class, []}
+         {:dest_telematics_id, {:telematics_id, 6, 7}},
+         {:source_telematics_id, {:telematics_id, 8, 9}},
+         {:broadcast_frequency_interval, {:broadcast_frequency_interval, 3, 5}},
+         {5156, "any tlv field"}
        ]}
 
     pdu = SmppexOserl.to_smppex(oserl_pdu)
@@ -21,12 +23,22 @@ defmodule SmppexOserlTest do
     assert 1 == Pdu.command_id(pdu)
     assert 2 == Pdu.command_status(pdu)
     assert 3 == Pdu.sequence_number(pdu)
-    assert "message" == Pdu.mandatory_field(pdu, :short_message)
-    assert "message payload" == Pdu.optional_field(pdu, :message_payload)
-    assert "any tlv field" == Pdu.optional_field(pdu, 0x1424)
-    assert <<1, 0, 2>> == Pdu.optional_field(pdu, :network_error_code)
+
+    assert "message" == Pdu.field(pdu, :short_message)
+    assert "message payload" == Pdu.field(pdu, :message_payload)
+    assert "any tlv field" == Pdu.field(pdu, 0x1424)
+    assert <<1, 0, 2>> == Pdu.field(pdu, :network_error_code)
     assert <<1, 2>> == Pdu.field(pdu, :its_session_info)
-    assert nil == Pdu.field(pdu, :esm_class)
+    assert <<6, 7>> == Pdu.field(pdu, :dest_telematics_id)
+    assert <<8, 9>> == Pdu.field(pdu, :source_telematics_id)
+    assert <<3, 0, 5>> == Pdu.field(pdu, :broadcast_frequency_interval)
+  end
+
+  test "empty network_error_code" do
+    assert nil ==
+             {1, 2, 3, [{:network_error_code, []}]}
+             |> SmppexOserl.to_smppex()
+             |> Pdu.field(:network_error_code)
   end
 
   test "from smppex to oserl" do
@@ -35,13 +47,23 @@ defmodule SmppexOserlTest do
         0x0424 => "message payload",
         0x1424 => "any tlv field"
       })
+      |> Pdu.set_optional_field(:network_error_code, <<1, 0, 3>>)
+      |> Pdu.set_optional_field(:its_session_info, <<1, 2>>)
+      |> Pdu.set_optional_field(:dest_telematics_id, <<6, 7>>)
+      |> Pdu.set_optional_field(:source_telematics_id, <<8, 9>>)
+      |> Pdu.set_optional_field(:broadcast_frequency_interval, <<3, 0, 5>>)
 
     assert {1, 2, 3, fields} = SmppexOserl.to_oserl(pdu)
 
-    assert [
+    assert Enum.sort([
              {5156, "any tlv field"},
+             {:its_session_info, {:its_session_info, 1, 2}},
              {:message_payload, 'message payload'},
-             {:short_message, 'message'}
-           ] == Enum.sort(fields)
+             {:network_error_code, {:network_error_code, 1, 3}},
+             {:short_message, 'message'},
+             {:dest_telematics_id, {:telematics_id, 6, 7}},
+             {:source_telematics_id, {:telematics_id, 8, 9}},
+             {:broadcast_frequency_interval, {:broadcast_frequency_interval, 3, 5}}
+           ]) == Enum.sort(fields)
   end
 end

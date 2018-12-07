@@ -12,22 +12,44 @@ defmodule SmppexOserl.ToOserl do
   end
 
   defp fields_to_list(pdu) do
-    (pdu |> Pdu.mandatory_fields() |> Map.to_list() |> Enum.map(&string_to_list(&1))) ++
-      (pdu |> Pdu.optional_fields() |> Map.to_list() |> ids_to_names)
+    ((pdu |> Pdu.mandatory_fields() |> Map.to_list() |> Enum.map(&string_to_list/1)) ++
+       (pdu |> Pdu.optional_fields() |> Map.to_list() |> Enum.map(&ids_to_names/1)))
+    |> Enum.map(&preprocess/1)
   end
 
-  defp ids_to_names(by_ids, by_names \\ [])
+  defp ids_to_names({name, value}) when is_atom(name) do
+    {name, value}
+  end
 
-  defp ids_to_names([], by_names), do: by_names
-
-  defp ids_to_names([{name, value} | by_ids], by_names) when is_atom(name),
-    do: ids_to_names(by_ids, [{name, value} | by_names])
-
-  defp ids_to_names([{id, value} | by_ids], by_names) when is_integer(id) do
+  defp ids_to_names({id, value}) when is_integer(id) do
     case TlvFormat.name_by_id(id) do
-      {:ok, name} -> ids_to_names(by_ids, [string_to_list({name, value}) | by_names])
-      :unknown -> ids_to_names(by_ids, [{id, value} | by_names])
+      {:ok, name} -> string_to_list({name, value})
+      :unknown -> {id, value}
     end
+  end
+
+  defp preprocess({:network_error_code, <<type_code::size(8), error_code::size(16)>>}) do
+    {:network_error_code, {:network_error_code, type_code, error_code}}
+  end
+
+  defp preprocess({:its_session_info, <<session_number::size(8), sequence_number::size(8)>>}) do
+    {:its_session_info, {:its_session_info, session_number, sequence_number}}
+  end
+
+  defp preprocess({:dest_telematics_id, <<protocol_id::size(8), reserved::size(8)>>}) do
+    {:dest_telematics_id, {:telematics_id, protocol_id, reserved}}
+  end
+
+  defp preprocess({:source_telematics_id, <<protocol_id::size(8), reserved::size(8)>>}) do
+    {:source_telematics_id, {:telematics_id, protocol_id, reserved}}
+  end
+
+  defp preprocess({:broadcast_frequency_interval, <<time_unit::size(8), number::size(16)>>}) do
+    {:broadcast_frequency_interval, {:broadcast_frequency_interval, time_unit, number}}
+  end
+
+  defp preprocess({key, value}) do
+    {key, value}
   end
 
   defp string_to_list({key, value}) when is_binary(value),
