@@ -11,9 +11,15 @@ defmodule SmppexOserl.ToSmppex do
   def convert({command_id, command_status, sequence_number, field_list} = _oserl_pdu) do
     converted_field_list =
       field_list
-      |> Enum.map(&preprocess/1)
+      |> Enum.map(fn field ->
+        try do
+          preprocess(field)
+        rescue
+          error ->
+            raise ArgumentError, "Error #{inspect(error)} converting field #{inspect(field)}"
+        end
+      end)
       |> Enum.reject(&is_nil/1)
-      |> Enum.map(&list_to_string/1)
 
     {mandatory, optional} = list_to_fields(converted_field_list, %{}, %{})
 
@@ -42,9 +48,6 @@ defmodule SmppexOserl.ToSmppex do
     end
   end
 
-  defp list_to_string({key, value}) when is_list(value), do: {key, :erlang.list_to_binary(value)}
-  defp list_to_string({key, value}), do: {key, value}
-
   defp preprocess({:network_error_code, network_error_code(type: type_code, error: error_code)}) do
     {:network_error_code, <<type_code::size(8), error_code::size(16)>>}
   end
@@ -70,6 +73,10 @@ defmodule SmppexOserl.ToSmppex do
           broadcast_frequency_interval(time_unit: time_unit, number: number)}
        ) do
     {:broadcast_frequency_interval, <<time_unit::size(8), number::size(16)>>}
+  end
+
+  defp preprocess({key, value}) when is_list(value) do
+    {key, :erlang.list_to_binary(value)}
   end
 
   defp preprocess({key, value}) do

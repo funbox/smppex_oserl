@@ -66,4 +66,9 @@ defmodule SmppexOserlTest do
              {:broadcast_frequency_interval, {:broadcast_frequency_interval, 3, 5}}
            ]) == Enum.sort(fields)
   end
+
+  test "utf characters in short_message" do
+    pdu = {1, 2, 3, [{:short_message, [1080]}]}
+    assert_raise(ArgumentError, fn -> SmppexOserl.to_smppex(pdu) end)
+  end
 end
