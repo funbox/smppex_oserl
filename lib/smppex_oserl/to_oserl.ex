@@ -48,10 +48,6 @@ defmodule SmppexOserl.ToOserl do
     {:source_telematics_id, {:telematics_id, protocol_id, reserved}}
   end
 
-  defp preprocess({:broadcast_frequency_interval, <<time_unit::size(8), number::size(16)>>}) do
-    {:broadcast_frequency_interval, {:broadcast_frequency_interval, time_unit, number}}
-  end
-
   defp preprocess({key, value}) do
     {key, value}
   end
