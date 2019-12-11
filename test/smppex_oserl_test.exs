@@ -14,7 +14,6 @@ defmodule SmppexOserlTest do
          {:its_session_info, {:its_session_info, 1, 2}},
          {:dest_telematics_id, {:telematics_id, 6, 7}},
          {:source_telematics_id, {:telematics_id, 8, 9}},
-         {:broadcast_frequency_interval, {:broadcast_frequency_interval, 3, 5}},
          {5156, "any tlv field"}
        ]}
 
@@ -31,7 +30,6 @@ defmodule SmppexOserlTest do
     assert <<1, 2>> == Pdu.field(pdu, :its_session_info)
     assert <<6, 7>> == Pdu.field(pdu, :dest_telematics_id)
     assert <<8, 9>> == Pdu.field(pdu, :source_telematics_id)
-    assert <<3, 0, 5>> == Pdu.field(pdu, :broadcast_frequency_interval)
   end
 
   test "empty network_error_code" do
@@ -43,15 +41,13 @@ defmodule SmppexOserlTest do
 
   test "from smppex to oserl" do
     pdu =
-      Pdu.new({1, 2, 3}, %{short_message: "message"}, %{
-        0x0424 => "message payload",
-        0x1424 => "any tlv field"
-      })
+      Pdu.new({1, 2, 3}, %{short_message: "message"}, %{})
+      |> Pdu.set_optional_field(0x1424, "any tlv field")
+      |> Pdu.set_optional_field(:message_payload, "message payload")
       |> Pdu.set_optional_field(:network_error_code, <<1, 0, 3>>)
       |> Pdu.set_optional_field(:its_session_info, <<1, 2>>)
       |> Pdu.set_optional_field(:dest_telematics_id, <<6, 7>>)
       |> Pdu.set_optional_field(:source_telematics_id, <<8, 9>>)
-      |> Pdu.set_optional_field(:broadcast_frequency_interval, <<3, 0, 5>>)
 
     assert {1, 2, 3, fields} = SmppexOserl.to_oserl(pdu)
 
@@ -63,7 +59,30 @@ defmodule SmppexOserlTest do
              {:short_message, 'message'},
              {:dest_telematics_id, {:telematics_id, 6, 7}},
              {:source_telematics_id, {:telematics_id, 8, 9}},
-             {:broadcast_frequency_interval, {:broadcast_frequency_interval, 3, 5}}
+           ]) == Enum.sort(fields)
+  end
+
+  test "optional fields by id" do
+    pdu =
+      Pdu.new({1, 2, 3}, %{short_message: "message"}, %{
+        0x0008 => <<6, 7>>,
+        0x0010 => <<8, 9>>,
+        0x0423 => <<1, 0, 3>>,
+        0x0424 => "message payload",
+        0x1383 => <<1, 2>>,
+        0x1424 => "any tlv field"
+      })
+
+    assert {1, 2, 3, fields} = SmppexOserl.to_oserl(pdu)
+
+    assert Enum.sort([
+             {5156, "any tlv field"},
+             {:its_session_info, {:its_session_info, 1, 2}},
+             {:message_payload, 'message payload'},
+             {:network_error_code, {:network_error_code, 1, 3}},
+             {:short_message, 'message'},
+             {:dest_telematics_id, {:telematics_id, 6, 7}},
+             {:source_telematics_id, {:telematics_id, 8, 9}},
            ]) == Enum.sort(fields)
   end
 

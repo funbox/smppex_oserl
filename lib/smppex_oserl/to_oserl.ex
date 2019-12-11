@@ -12,9 +12,13 @@ defmodule SmppexOserl.ToOserl do
   end
 
   defp fields_to_list(pdu) do
-    ((pdu |> Pdu.mandatory_fields() |> Map.to_list() |> Enum.map(&string_to_list/1)) ++
-       (pdu |> Pdu.optional_fields() |> Map.to_list() |> Enum.map(&ids_to_names/1)))
+    pdu
+    |> Pdu.mandatory_fields()
+    |> Map.merge(Pdu.optional_fields(pdu))
+    |> Map.to_list()
+    |> Enum.map(&ids_to_names/1)
     |> Enum.map(&preprocess/1)
+    |> Enum.map(&string_to_list/1)
   end
 
   defp ids_to_names({name, value}) when is_atom(name) do
@@ -23,7 +27,7 @@ defmodule SmppexOserl.ToOserl do
 
   defp ids_to_names({id, value}) when is_integer(id) do
     case TlvFormat.name_by_id(id) do
-      {:ok, name} -> string_to_list({name, value})
+      {:ok, name} -> {name, value}
       :unknown -> {id, value}
     end
   end
@@ -44,15 +48,11 @@ defmodule SmppexOserl.ToOserl do
     {:source_telematics_id, {:telematics_id, protocol_id, reserved}}
   end
 
-  defp preprocess({:broadcast_frequency_interval, <<time_unit::size(8), number::size(16)>>}) do
-    {:broadcast_frequency_interval, {:broadcast_frequency_interval, time_unit, number}}
-  end
-
   defp preprocess({key, value}) do
     {key, value}
   end
 
-  defp string_to_list({key, value}) when is_binary(value),
+  defp string_to_list({key, value}) when is_atom(key) and is_binary(value),
     do: {key, :erlang.binary_to_list(value)}
 
   defp string_to_list({key, value}), do: {key, value}

@@ -6,7 +6,6 @@ defmodule SmppexOserl.ToSmppex do
   Record.defrecord(:network_error_code, type: 0, error: 0)
   Record.defrecord(:its_session_info, session_number: 0, sequence_number: 0)
   Record.defrecord(:telematics_id, protocol_id: 0, reserved: 0)
-  Record.defrecord(:broadcast_frequency_interval, time_unit: 0, number: 0)
 
   def convert({command_id, command_status, sequence_number, field_list} = _oserl_pdu) do
     converted_field_list =
@@ -66,13 +65,6 @@ defmodule SmppexOserl.ToSmppex do
   defp preprocess({key, telematics_id(protocol_id: protocol_id, reserved: reserved)})
        when key == :dest_telematics_id or key == :source_telematics_id do
     {key, <<protocol_id::size(8), reserved::size(8)>>}
-  end
-
-  defp preprocess(
-         {:broadcast_frequency_interval,
-          broadcast_frequency_interval(time_unit: time_unit, number: number)}
-       ) do
-    {:broadcast_frequency_interval, <<time_unit::size(8), number::size(16)>>}
   end
 
   defp preprocess({key, value}) when is_list(value) do
